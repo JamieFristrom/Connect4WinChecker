@@ -36,7 +36,9 @@ library
       base >=4.7 && <5
     , libiserv
     , mtl
+    , random ==1.2.0
     , sort
+    , time ==1.9.3
     , transformers
   default-language: Haskell2010
 
@@ -51,8 +53,10 @@ executable sandbox-exe
       base >=4.7 && <5
     , libiserv
     , mtl
+    , random ==1.2.0
     , sandbox
     , sort
+    , time ==1.9.3
     , transformers
   default-language: Haskell2010
 
@@ -68,7 +72,9 @@ test-suite sandbox-test
       base >=4.7 && <5
     , libiserv
     , mtl
+    , random ==1.2.0
     , sandbox
     , sort
+    , time ==1.9.3
     , transformers
   default-language: Haskell2010

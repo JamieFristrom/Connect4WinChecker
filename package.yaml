@@ -25,6 +25,8 @@ dependencies:
 - mtl
 - sort
 - transformers
+- random == 1.2.0
+- time == 1.9.3
 
 library:
   source-dirs: src

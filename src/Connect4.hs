@@ -17,14 +17,16 @@ module Connect4
     makeBoard,
     initialBoard,
     playGame,
+    playRandomGame,
     testCase
     ) where
 
 import Data.List
 import Data.Maybe
+import Data.Time
 --import Data.Vector
 import C4Color
---import System.Random
+import System.Random
 
 type Column = [Maybe C4Color]
 
@@ -165,6 +167,16 @@ playGame board whoseTurn (nextMove:remainingMoves) =
 
 testCase = playGame (initialBoard 7) Red [1,2,1,3,1,4,1,5] 
 
-
---playRandomGame :: Maybe C4Color
---playRandomGame = do
+-- benchmark on my laptop for playRandomGame 1 500 = 8.033
+playRandomGame :: Int -> Int -> IO ()
+playRandomGame seed width = do
+    putStrLn "Starting"
+    startTime <- getCurrentTime
+    putStrLn $ "Start: " ++ show startTime 
+    let randoms' = randoms (mkStdGen seed) :: [Int]
+        columnNums = map (`mod` width) randoms' 
+        result = playGame (initialBoard width) Red columnNums
+    putStrLn $ show result  -- need to use it to evaluate it
+    endTime <- getCurrentTime
+    putStrLn $ "End: " ++ show endTime ++ " Total: " ++ show (diffUTCTime endTime startTime)
+    
