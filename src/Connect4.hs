@@ -1,45 +1,30 @@
 module Connect4
     ( 
-    FirstName(..),
-    LastName(..),
-    TotalName(..),
-    nameTest,
-    render,
-    sublists,
     addToFirstList,
     addToNthList,
     boardHeight,
     getPiece,
-    wonColumn,
     bestLength,
     bestRunLength,
-    verticalWin,
-    getPieceFromColumn,
-    extractRow,
     addToFirstCount,
     horizontalLengths,
     horizontalTraversal,
     wonLine,
     winCheckFuncs,
-    wonRow,
-    wonAnyRowBelowN,
     runLengths,
-    horizontalWin,
+    anyWin,
     makeMove,
     makeBoard,
     initialBoard,
-    playGame
+    playGame,
+    testCase
     ) where
 
 import Data.List
 import Data.Maybe
+--import Data.Vector
 import C4Color
-import System.Random
-
-type C4Board = [[C4Color]]
-
-data DivisionResult = DivisionByZero | Success Double
-    deriving (Show)
+--import System.Random
 
 type Column = [Maybe C4Color]
 
@@ -49,8 +34,6 @@ type Row = [Maybe C4Color]
 
 type RunLengths = [(Int,Maybe C4Color)]
 
--- 2d array 
-type Array2D a = [[a]]
 
 addToFirstList :: [[a]] -> a -> [[a]]
 addToFirstList [] newElement = [[newElement]]  -- is this "correct"? There is no list to add to, should we throw an error instead?
@@ -59,13 +42,6 @@ addToFirstList (firstList:remainingLists) newElement = (newElement:firstList):re
 
 addToNthList :: [[a]] -> Int -> a -> [[a]]
 addToNthList lists ndx newElement = (take ndx lists) ++ (newElement:(lists !! ndx)) : (drop (ndx+1) lists)
-
--- divides into lists of same color
-sublists :: Column -> [[Maybe C4Color]]
-sublists [] = [[]]
-sublists (checker:[]) = [[checker]]
-sublists (checker:checkers) = if checker == head checkers then addToFirstList (sublists checkers) checker
-                                                          else [checker]:sublists checkers
 
 
 -- this assumes there are lists & that each list is nonzero & same color, 
@@ -80,18 +56,6 @@ bestLength counts = foldr1 takeBest counts
                       where takeBest a b = if fst a > fst b then a else b
 
 
--- todo; need to eliminate Nothing runs
-wonColumn :: Column -> Maybe C4Color
-wonColumn column = let best = bestLength (sublistLengths (sublists column ))
-                    in if fst best >= 4 then snd best
-                                        else Nothing                
-
-
-verticalWin :: Board -> Maybe C4Color
-verticalWin board = let result = find isJust (map wonColumn (board))
-                        in if isNothing result then Nothing else fromJust result  -- yuck
-
-
 bestRunLength :: [(Int,Maybe C4Color)] -> (Int,Maybe C4Color)
 bestRunLength counts = let nonEmptyLists = filter isntEmpty counts
                         in if nonEmptyLists == [] then (0,Nothing)
@@ -99,19 +63,10 @@ bestRunLength counts = let nonEmptyLists = filter isntEmpty counts
                         where isntEmpty x = isJust (snd x)
 
 
-getPieceFromColumn :: Int -> Column -> Maybe C4Color
-getPieceFromColumn rowNum column = if rowNum < length column then column!!rowNum else Nothing
-
-
 getPiece :: Board -> Int -> Int -> Maybe C4Color
 getPiece board colN rowN = let column = board !! colN   -- crash if you're out of bounds, you made a mistake
                             in if rowN >= length column then Nothing
                                                         else column !! rowN
-
-
-
-extractRow :: Board -> Int -> Row
-extractRow board rowNum = map (getPieceFromColumn rowNum) board
 
 
 addToFirstCount :: [(Int,Maybe C4Color)] -> [(Int, Maybe C4Color)]
@@ -166,47 +121,14 @@ winCheckFuncs = (map (wonLine verticalTraversal) [ (x,0) | x <- [0..6] ] ) ++
                 (map (wonLine horizontalTraversal) [ (0,x) | x <- [0..6] ])
 
 
--- gross!!!!  guess I should find out what Haskell 2d array best practice is
-wonRow :: Row -> Maybe C4Color
-wonRow row = let (count,mcolor) = bestRunLength $ horizontalLengths row
-                        in if count >= 4 then mcolor else Nothing
-
-wonAnyRowBelowN :: Int -> Board -> Maybe C4Color
-wonAnyRowBelowN 0 board = wonRow $ extractRow board 0
-wonAnyRowBelowN row board = let result = wonRow $ extractRow board row
-                             in if isJust result then result 
-                                                 else wonAnyRowBelowN (row-1) board
-
-
 boardHeight :: Board -> Int
 boardHeight board = maximum $ map length board
-
-
-horizontalWin :: Board -> Maybe C4Color
-horizontalWin board = wonAnyRowBelowN (boardHeight board) board
-
---   let topRow = maximum $ map length board
---                           rowResult = find isJust $ map (wonRow . (extractRow board)) [0..topRow-1]
---                        in if isNothing rowResult then Nothing else fromJust rowResult  -- yuck
-
-diagonalNWWin :: Board -> Maybe C4Color
-diagonalNWWin board = Nothing  -- stub
-
-
-diagonalNEWin :: Board -> Maybe C4Color
-diagonalNEWin board = Nothing  -- stub
 
 
 -- usually when composing maybe's we want Nothing to win, but in this case it's more of an I won _or_ you won means someone won
 orMaybe :: Maybe a -> Maybe a -> Maybe a
 orMaybe Nothing b = b
 orMaybe a _ = a  -- in case of a tie a wins
-
-
-
-winFuncs = [horizontalWin, verticalWin, diagonalNWWin, diagonalNEWin]
-
--- this is the opposite of the way we usually compose maybe's - normally we and them
 
 
 anyWin :: Board -> Maybe C4Color
@@ -241,26 +163,8 @@ playGame board whoseTurn (nextMove:remainingMoves) =
                                    else anyWin board'
     
 
-playRandomGame :: Maybe C4Color
-playRandomGame = do
-    stdg
-----------------------------------------------------------------
--- test on strictness of typing
+testCase = playGame (initialBoard 7) Red [1,2,1,3,1,4,1,5] 
 
-newtype FirstName = FirstName String
-    deriving (Show)
 
-newtype LastName = LastName String
-    deriving (Show)
-
-newtype TotalName = TotalName (FirstName,LastName)
-    deriving (Show)
-
-nameTest :: LastName -> FirstName -> TotalName
-nameTest lastName firstName = TotalName (firstName, lastName)
-
--- this fails to compile as one would hope
---nameTest2 :: LastName -> FirstName -> TotalName
---nameTest2 lastName firstName = TotalName (lastName, firstName)
-render :: TotalName -> String
-render (TotalName (FirstName first, LastName last)) = first ++ " " ++ last
+--playRandomGame :: Maybe C4Color
+--playRandomGame = do

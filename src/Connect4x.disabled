@@ -1,3 +1,8 @@
+-- This implementation is pretty & easy to read but I think effectively O(n log n) because we have to sort the lists.
+-- the whole list, whereas an imp where we put everything in an array is more like O(sqrt(n))
+-- UNLESS haskell is smart enough, on those filter operations, to only filter the part of the list it hasn't filtered before
+-- I'll have to try both methods and time them with large data sets
+
 -- comments for non Haskellers
 module Connect4x 
     (
