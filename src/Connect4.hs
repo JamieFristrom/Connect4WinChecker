@@ -1,13 +1,12 @@
 module Connect4
     ( 
     addToFirstList,
-    addToNthList,
+    addToNthColumn,
     boardHeight,
     getPiece,
     bestLength,
     bestRunLength,
     addToFirstCount,
-    horizontalLengths,
     horizontalTraversal,
     wonLine,
     winCheckFuncs,
@@ -21,20 +20,74 @@ module Connect4
     testCase
     ) where
 
-import Data.List
 import Data.Maybe
 import Data.Time
---import Data.Vector
+import qualified Data.Vector as Vec
 import C4Color
 import System.Random
 
-type Column = [Maybe C4Color]
+type Column = Vec.Vector (Maybe C4Color)
+emptyColumn :: Column
+emptyColumn = Vec.empty
+
+-- list Column
+--emptyColumn = []
+
+-- list of lists impl
 
 type Board = [Column]
+
+--type Board = Vec.Vector Column
+
+
 
 type Row = [Maybe C4Color]
 
 type RunLengths = [(Int,Maybe C4Color)]
+
+-- xTake = Vec.take
+-- xDrop = Vec.drop
+-- xLength = Vec.length
+-- xCons = Vec.cons
+-- xHead = Vec.head
+-- xFold1 = Vec.foldr1
+-- xFilter = Vec.filter
+-- --xMaximum = Vec.maximum
+-- xMap = Vec.map
+-- xReplicate = Vec.replicate
+
+xTake = Prelude.take
+xDrop = Prelude.drop
+xLength = Prelude.length
+--xCons = cons
+xHead = Prelude.head
+--xFold1 = Prelude.foldr1
+xFilter = Prelude.filter
+--xMaximum = Prelude.maximum
+xMap = Prelude.map
+xReplicate = Prelude.replicate
+
+-- yTake = Prelude.take
+-- yDrop = Prelude.drop
+-- yLength = Prelude.length
+-- yCons = (:)
+-- yHead = Prelude.head
+-- --yFold1 = Prelude.foldr1
+-- yFilter = Prelude.filter
+-- --yMaximum = Prelude.maximum
+-- yMap = Prelude.map
+-- yReplicate = Prelude.replicate
+
+yTake = Vec.take
+yDrop = Vec.drop
+yLength = Vec.length
+yCons = Vec.cons
+yHead = Vec.head
+--yFold1 = Vec.foldr1
+yFilter = Vec.filter
+--yMaximum = Vec.maximum
+yMap = Vec.map
+yReplicate = Vec.replicate
 
 
 addToFirstList :: [[a]] -> a -> [[a]]
@@ -42,15 +95,17 @@ addToFirstList [] newElement = [[newElement]]  -- is this "correct"? There is no
 addToFirstList (firstList:remainingLists) newElement = (newElement:firstList):remainingLists
 
 
-addToNthList :: [[a]] -> Int -> a -> [[a]]
-addToNthList lists ndx newElement = (take ndx lists) ++ (newElement:(lists !! ndx)) : (drop (ndx+1) lists)
+-- addToNthList :: [[a]] -> Int -> a -> [[a]]
+-- addToNthList lists ndx newElement = (take ndx lists) ++ (newElement:(lists !! ndx)) : (drop (ndx+1) lists)
 
 
--- this assumes there are lists & that each list is nonzero & same color, 
--- I should have just done this more directly
-sublistLengths :: [[Maybe C4Color]] -> [(Int,Maybe C4Color)]
-sublistLengths splitlists = map (lengthAndColor) splitlists
-                                where lengthAndColor xs = (length xs, head xs)
+-- Vector version 
+-- addToNthColumn :: Board -> Int -> Maybe C4Color -> Board
+-- addToNthColumn board colN checker = (xTake colN board) Vec.++ xCons (checker:(board Vec.! colN)) (xDrop (colN+1) board)
+
+-- List version
+addToNthColumn :: Board -> Int -> Maybe C4Color -> Board
+addToNthColumn board colN checker = (xTake colN board) ++ (checker `yCons` (board !! colN)):(xDrop (colN+1) board)
 
 
 bestLength :: [(Int,Maybe C4Color)] -> (Int,Maybe C4Color)
@@ -64,22 +119,27 @@ bestRunLength counts = let nonEmptyLists = filter isntEmpty counts
                                                   else maximum nonEmptyLists
                         where isntEmpty x = isJust (snd x)
 
+-- board is a vector of columns version
+-- getPiece :: Board -> Int -> Int -> Maybe C4Color
+-- getPiece board colN rowN = let column = board Vec.! colN   -- crash if you're out of bounds, you made a mistake
+--                             in if rowN >= yLength column then Nothing
+--                                                          else column !! rowN
 
+-- board is a list of columns version
 getPiece :: Board -> Int -> Int -> Maybe C4Color
 getPiece board colN rowN = let column = board !! colN   -- crash if you're out of bounds, you made a mistake
-                            in if rowN >= length column then Nothing
-                                                        else column !! rowN
-
+                            in if rowN >= yLength column then Nothing
+                                                         else column Vec.! rowN
 
 addToFirstCount :: [(Int,Maybe C4Color)] -> [(Int, Maybe C4Color)]
 addToFirstCount ((num,col):xs) = (num+1,col):xs
 
 
-horizontalLengths :: Row -> [(Int,Maybe C4Color)]
-horizontalLengths [] = []
-horizontalLengths (x:[]) = [(1,x)]
-horizontalLengths (x:xs) = if x == (head xs) then addToFirstCount (horizontalLengths xs)
-                                             else (1,x):(horizontalLengths xs)
+-- horizontalLengths :: Row -> [(Int,Maybe C4Color)]
+-- horizontalLengths [] = []
+-- horizontalLengths (x:[]) = [(1,x)]
+-- horizontalLengths (x:xs) = if x == (head xs) then addToFirstCount (horizontalLengths xs)
+--                                              else (1,x):(horizontalLengths xs)
 
 horizontalTraversal :: (Int, Int)->(Int, Int)
 horizontalTraversal (x0, y0) = (x0+1, y0) 
@@ -101,7 +161,7 @@ incrementFirstRun ((headRunCount,headRunFlavor):restOfRuns) = (headRunCount+1,he
 runLengths :: Board -> (Int, Int) -> ((Int,Int)->(Int,Int)) -> [(Int,Maybe C4Color)]
 runLengths board (x, y) traversalFunc 
     | x < 0                  = []
-    | x >= length board      = []
+    | x >= xLength board      = []
     | y < 0                  = []
     | y >= boardHeight board = []
     | otherwise = let runs = runLengths board (traversalFunc (x,y)) traversalFunc
@@ -124,7 +184,7 @@ winCheckFuncs = (map (wonLine verticalTraversal) [ (x,0) | x <- [0..6] ] ) ++
 
 
 boardHeight :: Board -> Int
-boardHeight board = maximum $ map length board
+boardHeight board = maximum $ xMap yLength board
 
 
 -- usually when composing maybe's we want Nothing to win, but in this case it's more of an I won _or_ you won means someone won
@@ -140,11 +200,11 @@ anyWin board = foldr1 (orMaybe) $ map (applyToBoard board) winCheckFuncs
 
 -- makes the assumption we haven't screwed up and 
 makeMove :: Board -> Int -> C4Color -> Board
-makeMove board colNum pcolor = addToNthList board colNum (Just pcolor)
+makeMove board colNum pcolor = addToNthColumn board colNum (Just pcolor)
 
 
 initialBoard :: Int -> Board
-initialBoard width = replicate width []
+initialBoard width = xReplicate width emptyColumn
 
 
 oppositeColor :: C4Color -> C4Color
@@ -167,7 +227,12 @@ playGame board whoseTurn (nextMove:remainingMoves) =
 
 testCase = playGame (initialBoard 7) Red [1,2,1,3,1,4,1,5] 
 
--- benchmark on my laptop for playRandomGame 1 500 = 8.033
+-- benchmark on my laptop for playRandomGame 1 
+-- benchmark for using a list of lists = 8.033, 8.85, 9.3, 9.0
+
+-- bencharmk for using a Vector of lists 10.7, 13.4, 13.2
+-- benchmark for using a list of Vectors = 8.24, 8.36, 8.53
+
 playRandomGame :: Int -> Int -> IO ()
 playRandomGame seed width = do
     putStrLn "Starting"
