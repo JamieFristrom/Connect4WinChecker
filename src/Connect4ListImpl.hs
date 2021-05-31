@@ -1,13 +1,10 @@
--- This implementation is pretty & easy to read but I think effectively O(n log n) because we have to sort the lists.
--- the whole list, whereas an imp where we put everything in an array is more like O(sqrt(n))
--- UNLESS haskell is smart enough, on those filter operations, to only filter the part of the list it hasn't filtered before
--- I'll have to try both methods and time them with large data sets
+-- Elegant but much slower (5x for board width of 500) as I originally suspected
 
 -- comments for non Haskellers
-module Connect4x 
+module Connect4ListImpl
     (
     Checker(..),
-    GameState,
+    Board(..),
     isCheckerInColumn,
     isCheckerInRow,
     isCheckerInNEDiagonal,
@@ -23,9 +20,9 @@ module Connect4x
     getBoardLine,
     columnHeight,    
     makeMove,
-    testState,
     anyLineWin,
-    colorWon
+    anyWin,
+    initialBoard
     ) where
 
 import Data.Sort
@@ -36,7 +33,7 @@ data Checker = Checker { mColor :: C4Color
                        , mRowN :: Int
                        } deriving (Show)
 
-type GameState = [Checker] -- basically a type alias - GameState is a list of Checkers
+type Board = [Checker] -- basically a type alias - Board is a list of Checkers
 
 
 -- takes a checker and a column, returns whether the checker is in it
@@ -59,65 +56,77 @@ isCheckerInRow :: Int -> Checker -> Bool
 isCheckerInRow rowN checker = mRowN checker == rowN
 
 
--- get the height of a column; takes the gamestate and a column, returns the height
+-- get the height of a column; takes the Board and a column, returns the height
 -- works by filtering the list down to the checkers that are in the column, then 
 -- just counts them, so 
 -- makes assumption that we haven't made any mistakes - no two checkers in same spot,
 -- no floating checkers. An alternative, a list of lists for board state, is more accurate
 -- but harder to work with 
-columnHeight :: GameState -> Int -> Int
+columnHeight :: Board -> Int -> Int
 columnHeight gameState colN = length $ filter (isCheckerInColumn colN) gameState  -- $ is a ( that you don't have to remember to close
 
 
 -- check the diagonal three brothers gone come on
-getTheNWDiagonal :: GameState -> Int -> [Checker]
+getTheNWDiagonal :: Board -> Int -> [Checker]
 getTheNWDiagonal gameState colN = sortOn (mColN) $ filter (isCheckerInNWDiagonal colN) gameState
 
 
-getTheNEDiagonal :: GameState -> Int -> [Checker]
+getTheNEDiagonal :: Board -> Int -> [Checker]
 getTheNEDiagonal gameState colN = sortOn (mColN) $ filter (isCheckerInNEDiagonal colN) gameState
 
 
-runLength :: [Checker] -> C4Color -> Int
-runLength [] ccolor = 0
-runLength (checker:checkers) ccolor = if mColor checker == ccolor then 1 + (runLength checkers ccolor)
-                                                                  else 0
+-- ignores color; filter first
+runLength :: [Checker] -> Int
+runLength [] = 0
+runLength (checker:[]) = 1
+runLength (checkerA:checkerB:checkers) = if abs( mRowN checkerA - mRowN checkerB ) <= 1 &&
+                                            abs( mColN checkerA - mColN checkerB ) <= 1 
+                                            then 1 + (runLength (checkerB:checkers))
+                                            else 1
+
+-- ignores color; filter first
+runLengths :: [Checker] -> [Int]
+runLengths [] = []
+runLengths checkers = runLength checkers : runLengths (tail checkers) 
 
 
-runLengths :: [Checker] -> C4Color -> [Int]
-runLengths [] ccolor = []
-runLengths checkers ccolor = runLength checkers ccolor : runLengths (tail checkers) ccolor
+-- not as flexible as maximum
+safeMaximum :: [Int] -> Int
+safeMaximum values 
+    | length values == 0  = 0
+    | otherwise             = maximum values
 
 
 longestRunLength :: [Checker] -> C4Color -> Int
 longestRunLength [] ccolor = 0
-longestRunLength checkers ccolor = maximum $ runLengths checkers ccolor
+longestRunLength checkers ccolor = safeMaximum $ runLengths filteredCheckers 
+                                    where filteredCheckers = filter (\checker -> mColor checker == ccolor) checkers
 
 
-maxBoardDimension :: (Checker -> Int) -> GameState -> Int
+maxBoardDimension :: (Checker -> Int) -> Board -> Int
 maxBoardDimension dimensionFn [] = 0
-maxBoardDimension dimensionFn gameState = maximum $ map (dimensionFn) gameState
+maxBoardDimension dimensionFn gameState = safeMaximum $ map (dimensionFn) gameState
 
 
-boardWidth :: GameState -> Int
+boardWidth :: Board -> Int
 boardWidth = maxBoardDimension mColN
 
 
-boardHeight :: GameState -> Int
+boardHeight :: Board -> Int
 boardHeight = maxBoardDimension mRowN
 
 
 -- allows us to specify the function that detects whether a given piece is in the line
 -- so flexible across diagonal, vertical, and row
-getBoardLine :: (Int -> Checker -> Bool) -> GameState -> Int -> [Checker]
+getBoardLine :: (Int -> Checker -> Bool) -> Board -> Int -> [Checker]
 getBoardLine isCheckerInLineFn gameState colN = sortOn (mColN) $ filter (isCheckerInLineFn colN) gameState
 
 
-lineWin :: (Int -> Checker -> Bool) -> GameState -> C4Color -> Int -> Bool
+lineWin :: (Int -> Checker -> Bool) -> Board -> C4Color -> Int -> Bool
 lineWin isCheckerInLineFn gameState color colN = 4 <= longestRunLength (getBoardLine isCheckerInLineFn gameState colN) color
 
 
-anyLineWin :: (Int -> Checker -> Bool ) -> GameState -> C4Color -> Bool
+anyLineWin :: (Int -> Checker -> Bool ) -> Board -> C4Color -> Bool
 anyLineWin isCheckerInLineFn gameState ccolor = foldr1 (||) $ map (lineWin isCheckerInLineFn gameState ccolor) [0..(boardWidth gameState)]
 
 
@@ -125,29 +134,25 @@ lineFns :: [(Int -> Checker -> Bool )]
 lineFns = [isCheckerInColumn, isCheckerInRow, isCheckerInNEDiagonal, isCheckerInNWDiagonal]
 
 
-colorWon :: GameState -> C4Color -> Bool
+colorWon :: Board -> C4Color -> Bool
 colorWon gameState ccolor = foldr1 (||) $ map (\fn -> fn gameState ccolor) $ map (anyLineWin) lineFns
 
 
-
+anyWin :: Board -> Maybe C4Color
+anyWin board = if colorWon board Red then Just Red 
+                                     else if colorWon board Blue then Just Blue
+                                                                 else Nothing
 
 
 -- add a new checker to the game state
-makeMove :: GameState -> C4Color -> Int -> GameState
-makeMove gameState color colN  = Checker { mColor = color
-                                         , mColN = colN
-                                         , mRowN = columnHeight gameState colN 
-                                         }:gameState
+makeMove :: Board -> Int -> C4Color -> Board
+makeMove gameState colN color = Checker { mColor = color
+                                        , mColN = colN
+                                        , mRowN = columnHeight gameState colN 
+                                        }:gameState
+
+initialBoard :: Int -> Board
+initialBoard _ = []
 
 
-testState = [Checker {mColor = Blue, mColN = 3, mRowN = 2}
-            ,Checker {mColor = Blue, mColN = 2, mRowN = 1}
-            ,Checker {mColor = Red, mColN = 3, mRowN = 1}
-            ,Checker {mColor = Red, mColN = 3, mRowN = 0}
-            ,Checker {mColor = Red, mColN = 2, mRowN = 0}
-            ,Checker {mColor = Blue, mColN = 1, mRowN = 0}
-            ,Checker {mColor = Blue, mColN = 4, mRowN = 0}
-            ,Checker {mColor = Blue, mColN = 4, mRowN = 1}
-            ,Checker {mColor = Blue, mColN = 4, mRowN = 2}
-            ,Checker {mColor = Blue, mColN = 4, mRowN = 3}
-            ]
+skipSpaceTestCase = [Checker {mColor=Red,mColN=0,mRowN=0}, Checker {mColor=Red,mColN=2,mRowN=0}]

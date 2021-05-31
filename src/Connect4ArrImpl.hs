@@ -1,5 +1,6 @@
-module Connect4
+module Connect4ArrImpl
     ( 
+    Board(..),
     addToFirstList,
     addToNthColumn,
     boardHeight,
@@ -13,11 +14,7 @@ module Connect4
     runLengths,
     anyWin,
     makeMove,
-    makeBoard,
-    initialBoard,
-    playGame,
-    playRandomGame,
-    testCase
+    initialBoard
     ) where
 
 import Data.Maybe
@@ -26,18 +23,7 @@ import qualified Data.Vector as Vec
 import C4Color
 import System.Random
 
-type Column = Vec.Vector (Maybe C4Color)
-emptyColumn :: Column
-emptyColumn = Vec.empty
 
--- list Column
---emptyColumn = []
-
--- list of lists impl
-
-type Board = [Column]
-
---type Board = Vec.Vector Column
 
 
 
@@ -67,27 +53,43 @@ xFilter = Prelude.filter
 xMap = Prelude.map
 xReplicate = Prelude.replicate
 
--- yTake = Prelude.take
--- yDrop = Prelude.drop
--- yLength = Prelude.length
--- yCons = (:)
--- yHead = Prelude.head
--- --yFold1 = Prelude.foldr1
--- yFilter = Prelude.filter
--- --yMaximum = Prelude.maximum
--- yMap = Prelude.map
--- yReplicate = Prelude.replicate
+-- list Column
+type Column = [Maybe C4Color]
+emptyColumn = []
 
-yTake = Vec.take
-yDrop = Vec.drop
-yLength = Vec.length
-yCons = Vec.cons
-yHead = Vec.head
---yFold1 = Vec.foldr1
-yFilter = Vec.filter
---yMaximum = Vec.maximum
-yMap = Vec.map
-yReplicate = Vec.replicate
+yTake = Prelude.take
+yDrop = Prelude.drop
+yLength = Prelude.length
+yCons = (:)
+yHead = Prelude.head
+--yFold1 = Prelude.foldr1
+yFilter = Prelude.filter
+--yMaximum = Prelude.maximum
+yMap = Prelude.map
+yReplicate = Prelude.replicate
+
+-- vector Column
+-- type Column = Vec.Vector (Maybe C4Color)
+-- emptyColumn :: Column
+-- emptyColumn = Vec.empty
+
+
+-- yTake = Vec.take
+-- yDrop = Vec.drop
+-- yLength = Vec.length
+-- yCons = Vec.cons
+-- yHead = Vec.head
+-- --yFold1 = Vec.foldr1
+-- yFilter = Vec.filter
+-- --yMaximum = Vec.maximum
+-- yMap = Vec.map
+-- yReplicate = Vec.replicate
+
+-- list of lists impl
+
+type Board = [Column]
+
+--type Board = Vec.Vector Column
 
 
 addToFirstList :: [[a]] -> a -> [[a]]
@@ -129,7 +131,7 @@ bestRunLength counts = let nonEmptyLists = filter isntEmpty counts
 getPiece :: Board -> Int -> Int -> Maybe C4Color
 getPiece board colN rowN = let column = board !! colN   -- crash if you're out of bounds, you made a mistake
                             in if rowN >= yLength column then Nothing
-                                                         else column Vec.! rowN
+                                                         else column !! (yLength column - rowN - 1)
 
 addToFirstCount :: [(Int,Maybe C4Color)] -> [(Int, Maybe C4Color)]
 addToFirstCount ((num,col):xs) = (num+1,col):xs
@@ -205,10 +207,6 @@ makeMove board colNum pcolor = addToNthColumn board colNum (Just pcolor)
 
 initialBoard :: Int -> Board
 initialBoard width = xReplicate width emptyColumn
-
-
-oppositeColor :: C4Color -> C4Color
-oppositeColor color = if color == Red then Blue else Red
 
 
 makeBoard :: Board -> C4Color -> [Int] -> Board
